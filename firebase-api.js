@@ -40,10 +40,11 @@ export const getUsers = async (uid) => {
 };
 
 export const addItemLike = async (likedBy, otherUser, itemId) => {
+  console.log("addItemLike", { likedBy, otherUser, itemId });
   var sortedUsers = [likedBy, otherUser].sort();
   var pairingKey = sortedUsers.join("");
 
-  const pairingData = (
+  let pairingData = (
     await db.collection("pairings").doc(pairingKey).get()
   ).data();
 
