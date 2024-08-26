@@ -81,11 +81,11 @@ export const checkIfMatch = async (likedBy, otherUser, itemId) => {
     return { match: true, users: sortedUsers, itemId };
   }
 
-  const getPairingKeyRef = (user1, user2) => {
-    var sortedUsers = [user1, user2].sort();
-    var pairingKey = sortedUsers.join("");
-    return db.collection("pairings").doc(pairingKey);
-  };
-
   return { match: false };
+};
+
+const getPairingKeyRef = (user1, user2) => {
+  var sortedUsers = [user1, user2].sort();
+  var pairingKey = sortedUsers.join("");
+  return db.collection("pairings").doc(pairingKey);
 };
