@@ -1,14 +1,10 @@
 import admin from "firebase-admin";
 import { createRequire } from "module";
-import dotenv from "dotenv";
-dotenv.config();
 
 let serviceAccount;
 if (process.env.IS_LOCAL === false) {
-  console.log("Using service account from hosted file");
   serviceAccount = require("/etc/secrets/movie-match-sak.json");
 } else {
-  console.log("Using service account from local file");
   const require = createRequire(import.meta.url);
   serviceAccount = require("./movie-match-sak.json");
 }
@@ -18,6 +14,12 @@ admin.initializeApp({
 });
 
 const db = admin.firestore();
+
+export const getCollection = async (collection) => {
+  const snapshot = await db.collection(collection).get();
+  const data = snapshot.docs.map((doc) => doc.data());
+  return data;
+};
 
 export const addUser = async (uid, email, displayName) => {
   const docRef = db.collection("users").doc(uid);
@@ -38,13 +40,18 @@ export const getUsers = async (uid) => {
 };
 
 export const addItemLike = async (likedBy, otherUser, itemId) => {
-  const pairingData = getPairingKeyRef(likedBy, otherUser).get().data();
+  var sortedUsers = [likedBy, otherUser].sort();
+  var pairingKey = sortedUsers.join("");
+
+  const pairingData = (
+    await db.collection("pairings").doc(pairingKey).get()
+  ).data();
 
   if (!pairingData) {
-    await getPairingKeyRef(likedBy, otherUser).set(
-      { likes: [itemId] },
-      { merge: true }
-    );
+    await db
+      .collection("pairings")
+      .doc(pairingKey)
+      .set({ likes: [itemId] }, { merge: true });
     pairingData = { likes: [itemId] };
   }
 
@@ -54,14 +61,17 @@ export const addItemLike = async (likedBy, otherUser, itemId) => {
     likes: Array.from(currentLiked),
   };
   const res = await checkIfMatch(likedBy, otherUser, itemId);
-  await getPairingKeyRef(likedBy, otherUser).set(dataToBeUpserted, {
-    merge: true,
-  });
+  await db
+    .collection("pairings")
+    .doc(pairingKey)
+    .set(dataToBeUpserted, { merge: true });
   return res;
 };
 
 export const checkIfMatch = async (likedBy, otherUser, itemId) => {
-  var pairings = (await getPairingKeyRef(likedBy, otherUser).get()).data();
+  var sortedUsers = [likedBy, otherUser].sort();
+  var pairingKey = sortedUsers.join("");
+  var pairings = (await db.collection("pairings").doc(pairingKey).get()).data();
   if (!pairings) {
     return { match: false };
   }
@@ -71,7 +81,7 @@ export const checkIfMatch = async (likedBy, otherUser, itemId) => {
     const matches = pairings["matches"] ?? [];
     const matchesArray = Array.from(matches);
     const newMatches = Array.from(new Set(matchesArray.concat(itemId)));
-    await getPairingKeyRef(likedBy, otherUser).set(
+    await db.collection("pairings").doc(pairingKey).set(
       {
         matches: newMatches,
       },
@@ -80,12 +90,5 @@ export const checkIfMatch = async (likedBy, otherUser, itemId) => {
 
     return { match: true, users: sortedUsers, itemId };
   }
-
   return { match: false };
-};
-
-const getPairingKeyRef = (user1, user2) => {
-  var sortedUsers = [user1, user2].sort();
-  var pairingKey = sortedUsers.join("");
-  return db.collection("pairings").doc(pairingKey);
 };
