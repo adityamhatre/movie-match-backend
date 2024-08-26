@@ -1,7 +1,17 @@
 import admin from "firebase-admin";
 import { createRequire } from "module";
-const require = createRequire(import.meta.url);
-const serviceAccount = require("./movie-match-sak.json");
+import dotenv from "dotenv";
+dotenv.config();
+
+let serviceAccount;
+if (process.env.IS_LOCAL === false) {
+  console.log("Using service account from hosted file");
+  serviceAccount = require("/etc/secrets/movie-match-sak.json");
+} else {
+  console.log("Using service account from local file");
+  const require = createRequire(import.meta.url);
+  serviceAccount = require("./movie-match-sak.json");
+}
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
